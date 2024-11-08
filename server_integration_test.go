@@ -9,7 +9,7 @@ import (
 
 func TestRecordingWinsAndRetrievingWins(t *testing.T) {
 	store := NewInMemoryStore()
-	server := PlayerServer{store}
+	server := NewPlayerServer(store)
 	player := "Mikey"
 	writeCount := 3
 

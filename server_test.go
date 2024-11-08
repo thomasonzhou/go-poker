@@ -21,7 +21,7 @@ func (s *StubPlayerStore) RecordWin(name string) {
 	s.winCalls = append(s.winCalls, name)
 }
 
-func TestGETPlayers(t *testing.T) {
+func TestGetPlayers(t *testing.T) {
 	store := StubPlayerStore{
 		scores: map[string]int{
 			"ジョンさん": 7,
@@ -29,7 +29,7 @@ func TestGETPlayers(t *testing.T) {
 		},
 		winCalls: nil,
 	}
-	server := &PlayerServer{&store}
+	server := NewPlayerServer(&store)
 
 	t.Run("returns ジョンさん's score", func(t *testing.T) {
 		request := newGetScoreRequest("ジョンさん")
@@ -67,7 +67,7 @@ func TestStoreWins(t *testing.T) {
 		scores:   map[string]int{},
 		winCalls: nil,
 	}
-	server := PlayerServer{&store}
+	server := NewPlayerServer(&store)
 
 	t.Run("stores wins on POST", func(t *testing.T) {
 		player := "金太郎"
@@ -85,10 +85,23 @@ func TestStoreWins(t *testing.T) {
 			t.Errorf("expected player %q, got %q", player, store.winCalls[0])
 		}
 	})
+}
+
+func TestLeague(t *testing.T) {
+	store := StubPlayerStore{}
+	server := NewPlayerServer(&store)
+
+	request, _ := http.NewRequest(http.MethodGet, "/league/t", nil)
+	response := httptest.NewRecorder()
+
+	server.ServeHTTP(response, request)
+
+	assertStatus(http.StatusOK, response.Code, t)
 
 }
 
 func assertStatus(want, got int, t *testing.T) {
+	t.Helper()
 	if got != want {
 		t.Errorf("got status %d, want status %d", got, want)
 	}
@@ -105,6 +118,7 @@ func newPostWinRequest(player string) *http.Request {
 }
 
 func assertResponseBody(want, got string, t *testing.T) {
+	t.Helper()
 	if want != got {
 		t.Errorf("want %q, got %q", want, got)
 	}
