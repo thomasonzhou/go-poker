@@ -8,19 +8,32 @@ import (
 )
 
 func TestRecordingWinsAndRetrievingWins(t *testing.T) {
+
 	store := NewInMemoryStore()
 	server := NewPlayerServer(store)
-	player := "Mikey"
-	writeCount := 3
+	const player = "Mikey"
+	const writeCount = 3
 
 	for range writeCount {
 		server.ServeHTTP(httptest.NewRecorder(), newPostWinRequest(player))
 	}
 
-	response := httptest.NewRecorder()
-	server.ServeHTTP(response, newGetScoreRequest(player))
+	t.Run("get score", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, newGetScoreRequest(player))
 
-	assertStatus(http.StatusOK, response.Code, t)
-	assertResponseBody(strconv.Itoa(writeCount), response.Body.String(), t)
+		assertStatus(http.StatusOK, response.Code, t)
+		assertResponseBody(strconv.Itoa(writeCount), response.Body.String(), t)
+	})
 
+	t.Run("get league", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, newLeagueRequest())
+
+		assertStatus(http.StatusOK, response.Code, t)
+		assertContentType(response, jsonContentType, t)
+
+		league := getLeagueFromResponse(response, t)
+		assertLeaguesMatch(league, []Player{{player, 3}}, t)
+	})
 }

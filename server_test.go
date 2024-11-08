@@ -1,15 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 )
 
 type StubPlayerStore struct {
 	scores   map[string]int
 	winCalls []string
+	league   []Player
 }
 
 func (s *StubPlayerStore) GetPlayerScore(name string) int {
@@ -19,6 +22,10 @@ func (s *StubPlayerStore) GetPlayerScore(name string) int {
 
 func (s *StubPlayerStore) RecordWin(name string) {
 	s.winCalls = append(s.winCalls, name)
+}
+
+func (s *StubPlayerStore) GetLeague() []Player {
+	return s.league
 }
 
 func TestGetPlayers(t *testing.T) {
@@ -88,16 +95,52 @@ func TestStoreWins(t *testing.T) {
 }
 
 func TestLeague(t *testing.T) {
-	store := StubPlayerStore{}
+	league := []Player{
+		{"Genki", 2},
+		{"Bulbasaur", 001},
+		{"of Legends", 2009},
+	}
+
+	store := StubPlayerStore{league: league}
 	server := NewPlayerServer(&store)
 
-	request, _ := http.NewRequest(http.MethodGet, "/league/t", nil)
 	response := httptest.NewRecorder()
 
-	server.ServeHTTP(response, request)
+	server.ServeHTTP(response, newLeagueRequest())
+
+	got := getLeagueFromResponse(response, t)
+	assertLeaguesMatch(league, got, t)
+	assertContentType(response, jsonContentType, t)
 
 	assertStatus(http.StatusOK, response.Code, t)
+}
 
+func assertLeaguesMatch(league []Player, got []Player, t *testing.T) {
+	if !slices.Equal(league, got) {
+		t.Errorf("Wanted %v got %v", league, got)
+	}
+}
+
+func assertContentType(response *httptest.ResponseRecorder, want string, t *testing.T) {
+	t.Helper()
+	if response.Result().Header.Get("content-type") != want {
+		t.Errorf("Response content-type was not json, got %v", response.Result().Header)
+	}
+}
+
+func newLeagueRequest() *http.Request {
+	request, _ := http.NewRequest(http.MethodGet, "/league", nil)
+	return request
+}
+
+func getLeagueFromResponse(response *httptest.ResponseRecorder, t *testing.T) (league []Player) {
+	t.Helper()
+
+	err := json.NewDecoder(response.Body).Decode(&league)
+	if err != nil {
+		t.Fatalf("Unable to parse %q into JSON, %v", response.Body, err)
+	}
+	return league
 }
 
 func assertStatus(want, got int, t *testing.T) {
